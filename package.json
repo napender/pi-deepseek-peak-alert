@@ -17,6 +17,7 @@
     "url": "https://github.com/napender/pi-deepseek-peak-alert"
   },
   "pi": {
-    "extensions": ["./extensions"]
+    "extensions": ["./extensions"],
+    "image": "https://raw.githubusercontent.com/napender/pi-deepseek-peak-alert/main/screenshot.png"
   }
 }
