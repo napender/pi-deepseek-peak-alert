@@ -1,6 +1,6 @@
 {
   "name": "pi-deepseek-peak-alert",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Pi extension that warns you with desktop notifications when using DeepSeek during peak pricing hours (2× rates)",
   "keywords": [
     "pi-package",
@@ -17,7 +17,9 @@
     "url": "https://github.com/napender/pi-deepseek-peak-alert"
   },
   "pi": {
-    "extensions": ["./extensions"],
+    "extensions": [
+      "./extensions"
+    ],
     "image": "https://raw.githubusercontent.com/napender/pi-deepseek-peak-alert/main/screenshot.png"
   }
 }

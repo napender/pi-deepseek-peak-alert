@@ -11,6 +11,12 @@ DeepSeek introduced peak/valley pricing in July 2025. This extension makes sure 
 
 ## Screenshots
 
+**In-app TUI warnings** (status bar + widget banner):
+
+![TUI status bar and widget banner](screenshot-tui.png)
+
+**Desktop notifications:**
+
 <table>
   <tr>
     <td align="center"><b>Peak session warning</b></td>
