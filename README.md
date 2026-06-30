@@ -1,5 +1,8 @@
 # pi-deepseek-peak-alert
 
+[![npm version](https://img.shields.io/npm/v/pi-deepseek-peak-alert)](https://www.npmjs.com/package/pi-deepseek-peak-alert)
+[![license](https://img.shields.io/npm/l/pi-deepseek-peak-alert)](LICENSE)
+
 A [pi](https://pi.dev) extension that sends desktop notifications when you're using DeepSeek models during **peak pricing hours** (2× regular rates).
 
 DeepSeek introduced peak/valley pricing in July 2025. This extension makes sure you never accidentally burn double credits without knowing.
