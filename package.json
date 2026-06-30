@@ -14,7 +14,7 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/napendra/pi-deepseek-peak-alert"
+    "url": "https://github.com/napender/pi-deepseek-peak-alert"
   },
   "pi": {
     "extensions": ["./extensions"]
