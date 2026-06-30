@@ -32,31 +32,30 @@ Add in-app TUI warnings (status bar + widget) so users see peak alerts even when
 
 ### Phase 1: Centralized state + helper functions
 
-- [ ] Add `updateTuiWarnings(ctx)` function that reads peak status + active model
-- [ ] Add `clearTuiWarnings(ctx)` function
-- [ ] Track `currentModel` and a `ctx` reference for the timer to use
-- [ ] The helper builds status text: `"🔴 PEAK · ~45 min left"` or `"🟢 Off-peak"`
-- [ ] The helper builds widget text: peak window label + time remaining
+- [x] Add `updateTuiWarnings(ctx, model)` function that reads peak status + active model
+- [x] Track `currentModel` and `storedCtx` reference for the timer to use
+- [x] Helper builds status text: `"🔴 PEAK · ~45 min left"` or `"🟢 Off-peak"`
+- [x] Helper builds widget text: peak window label + time remaining
 
 ### Phase 2: Wire into lifecycle events
 
-- [ ] `session_start` → initialize TUI warnings
-- [ ] `model_select` → update immediately on switch
-- [ ] `agent_start` → refresh (captures peak status at run start)
-- [ ] `agent_end` → refresh (peak may have ended during run)
-- [ ] Periodic timer → call `updateTuiWarnings()` with stored ctx ref
+- [x] `session_start` → initialize TUI warnings
+- [x] `model_select` → update immediately on switch
+- [x] `agent_start` → refresh (captures peak status at run start)
+- [x] `agent_end` → refresh (peak may have ended during run)
+- [x] Periodic timer → call `updateTuiWarnings()` with stored ctx ref
 
 ### Phase 3: Status bar (footer)
 
-- [ ] When DeepSeek active + peak → `setStatus("deepseek-peak", "🔴 PEAK · ~45 min")`
-- [ ] When DeepSeek active + off-peak → `setStatus("deepseek-peak", "🟢 Off-peak")`
-- [ ] When NOT DeepSeek → `setStatus("deepseek-peak", undefined)` (hidden)
+- [x] When DeepSeek active + peak → `setStatus("deepseek-peak", "🔴 PEAK · ~45 min")`
+- [x] When DeepSeek active + off-peak → `setStatus("deepseek-peak", "🟢 Off-peak")`
+- [x] When NOT DeepSeek → `setStatus("deepseek-peak", undefined)` (hidden)
 
 ### Phase 4: Widget banner (above editor)
 
-- [ ] When DeepSeek active + peak → `setWidget("deepseek-peak", [warning lines])`
-- [ ] Lines: `"⚠️ DeepSeek peak pricing · {time_range} · ~{min} left · 2× rates"`
-- [ ] When off-peak or not DeepSeek → `setWidget("deepseek-peak", undefined)` (hidden)
+- [x] When DeepSeek active + peak → `setWidget("deepseek-peak", [warning lines])`
+- [x] Lines: `"⚠️ DeepSeek peak pricing · {time_range} · ~{min} left · 2× rates"`
+- [x] When off-peak or not DeepSeek → `setWidget("deepseek-peak", undefined)` (hidden)
 
 ### Phase 5: Test & verify
 

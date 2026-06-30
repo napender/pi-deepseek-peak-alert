@@ -20,16 +20,10 @@ import type { ExtensionAPI, ExtensionCommandContext } from "@earendil-works/pi-c
  *   JST  (Japan)          +9
  *   AEST (Sydney)        +10 / +11 (DST)
  *
- * Edge cases covered:
- *   ✓ Switch to DeepSeek during peak          → immediate warning
- *   ✓ Session starts with DeepSeek in peak    → immediate warning
- *   ✓ Idle session, peak starts while away    → timer catches transition
- *   ✓ Actively working, peak starts mid-run   → timer notifies; agent_end
- *                                              uses request-START time for
- *                                              accurate peak/off-peak label
- *   ✓ Peak ends mid-run                       → agent_end correctly shows
- *                                              peak rate (billed at start)
- *   ✓ Every prompt during peak                → warned before request sent
+ * Three-layer warning system:
+ *   Layer 1: TUI status bar  → always visible in footer
+ *   Layer 2: TUI widget       → banner above editor
+ *   Layer 3: Desktop notifications → system-level alerts
  */
 
 // ─── Platform notification ───────────────────────────────────────
@@ -158,27 +152,63 @@ function isDeepSeek(model: { provider: string; id: string } | undefined): boolea
   return model.provider === "deepseek" || model.id.toLowerCase().includes("deepseek");
 }
 
+// ─── TUI status bar + widget helpers ─────────────────────────────
+
+/** Update both the footer status and the editor widget based on current state. */
+function updateTuiWarnings(
+  ctx: { ui: { setStatus: (id: string, text: string | undefined) => void; setWidget: (id: string, lines: string[] | undefined) => void } },
+  model: { provider: string; id: string } | undefined
+) {
+  const WIDGET_ID = "deepseek-peak";
+  const STATUS_ID = "deepseek-peak";
+
+  if (isDeepSeek(model) && isPeakHour()) {
+    const slot = getActivePeakSlot();
+    const mins = minutesUntilPeakEnd();
+    const label = slot ? peakSlotLabel(slot) : "now";
+
+    // Status bar: compact indicator
+    ctx.ui.setStatus(STATUS_ID, `🔴 PEAK · ~${mins} min`);
+
+    // Widget banner: full warning above editor
+    const lines = [
+      `⚠️  DeepSeek peak pricing active · ${label} · ~${mins} min remaining`,
+      `    Prices are 2× regular rate. Ctrl+P to switch models.`,
+    ];
+    ctx.ui.setWidget(WIDGET_ID, lines);
+  } else if (isDeepSeek(model) && !isPeakHour()) {
+    // Off-peak but DeepSeek active: green status, no banner
+    ctx.ui.setStatus(STATUS_ID, "🟢 Off-peak");
+    ctx.ui.setWidget(WIDGET_ID, undefined);
+  } else {
+    // Not DeepSeek: hide everything
+    ctx.ui.setStatus(STATUS_ID, undefined);
+    ctx.ui.setWidget(WIDGET_ID, undefined);
+  }
+}
+
 // ─── Extension ───────────────────────────────────────────────────
 
 export default function (pi: ExtensionAPI) {
   // ── Shared state ───────────────────────────────────────────────
-  // Tracks whether the CURRENT agent run was started during peak hours.
-  // This is captured at agent_start time so agent_end can report
-  // accurately even if peak starts or ends mid-run.
   let currentRunStartedInPeak = false;
-
-  // Track the active model so the timer can check without ctx.
   let currentModel: { provider: string; id: string } | undefined;
+  // Stored ctx reference so the timer can update TUI components
+  let storedCtx: { ui: { setStatus: (id: string, text: string | undefined) => void; setWidget: (id: string, lines: string[] | undefined) => void } } | null = null;
 
-  // ── Periodic timer: notify when peak hours BEGIN ───────────────
-  // Covers: "user is actively working off-peak, peak starts mid-run"
-  //   and  "session is idle, peak starts while away"
+  // ── Periodic timer ─────────────────────────────────────────────
   let wasPeakLastCheck = isPeakHour();
 
   const peakCheckInterval = setInterval(() => {
     const nowPeak = isPeakHour();
+
+    // Update TUI status/widget every tick (handles idle transitions)
+    if (storedCtx) {
+      updateTuiWarnings(storedCtx, currentModel);
+    }
+
+    // Desktop notification: only on transition INTO peak
     if (nowPeak && !wasPeakLastCheck) {
-      // Transitioned INTO peak
       const slot = getActivePeakSlot();
       if (isDeepSeek(currentModel)) {
         sendNotification(
@@ -193,10 +223,8 @@ export default function (pi: ExtensionAPI) {
         );
       }
     }
-    // Note: we intentionally do NOT notify when transitioning OUT of peak.
-    // The user will notice from the next agent_end showing regular pricing.
     wasPeakLastCheck = nowPeak;
-  }, 60_000); // check every 60 seconds
+  }, 60_000);
 
   // ── /deepseek-peak command ─────────────────────────────────────
   pi.registerCommand("deepseek-peak", {
@@ -208,39 +236,13 @@ export default function (pi: ExtensionAPI) {
   });
 
   // ═══════════════════════════════════════════════════════════════
-  // TRACK model changes for the timer
-  // ═══════════════════════════════════════════════════════════════
-
-  pi.on("model_select", async (event, _ctx) => {
-    currentModel = event.model;
-
-    // Warn if switching TO DeepSeek during peak
-    if (!isDeepSeek(event.model)) return;
-    if (!isPeakHour()) return;
-
-    const slot = getActivePeakSlot();
-    const minsLeft = minutesUntilPeakEnd();
-
-    sendNotification(
-      "⚠️ DEEPSEEK PEAK HOURS — 2× PRICE",
-      [
-        `Switched to ${event.model.name || event.model.id}.`,
-        `Peak: ${peakSlotLabel(slot)}`,
-        minsLeft ? `Ends in ~${minsLeft} min` : "",
-        "Prices DOUBLED. Ctrl+P to switch models.",
-      ]
-        .filter(Boolean)
-        .join(" · "),
-      "Basso"
-    );
-  });
-
-  // ═══════════════════════════════════════════════════════════════
-  // SESSION START
+  // SESSION START — init TUI + desktop notification
   // ═══════════════════════════════════════════════════════════════
 
   pi.on("session_start", async (_event, ctx) => {
     currentModel = ctx.model;
+    storedCtx = ctx;
+    updateTuiWarnings(ctx, currentModel);
 
     if (!ctx.model || !isDeepSeek(ctx.model)) return;
     if (!isPeakHour()) return;
@@ -263,18 +265,46 @@ export default function (pi: ExtensionAPI) {
   });
 
   // ═══════════════════════════════════════════════════════════════
-  // AGENT START — capture peak status at request time
+  // MODEL SELECT — update TUI + desktop notification
+  // ═══════════════════════════════════════════════════════════════
+
+  pi.on("model_select", async (event, _ctx) => {
+    currentModel = event.model;
+    updateTuiWarnings(_ctx, currentModel);
+
+    if (!isDeepSeek(event.model)) return;
+    if (!isPeakHour()) return;
+
+    const slot = getActivePeakSlot();
+    const minsLeft = minutesUntilPeakEnd();
+
+    sendNotification(
+      "⚠️ DEEPSEEK PEAK HOURS — 2× PRICE",
+      [
+        `Switched to ${event.model.name || event.model.id}.`,
+        `Peak: ${peakSlotLabel(slot)}`,
+        minsLeft ? `Ends in ~${minsLeft} min` : "",
+        "Prices DOUBLED. Ctrl+P to switch models.",
+      ]
+        .filter(Boolean)
+        .join(" · "),
+      "Basso"
+    );
+  });
+
+  // ═══════════════════════════════════════════════════════════════
+  // AGENT START — capture peak status, refresh TUI, store ctx
   // ═══════════════════════════════════════════════════════════════
 
   pi.on("agent_start", async (_event, ctx) => {
     currentModel = ctx.model;
-    // Capture peak status NOW so agent_end is accurate even if
-    // peak starts or ends while the agent is still running.
+    storedCtx = ctx;
+    updateTuiWarnings(ctx, currentModel);
     currentRunStartedInPeak = isDeepSeek(ctx.model) && isPeakHour();
   });
 
   // ═══════════════════════════════════════════════════════════════
-  // BEFORE AGENT START — warn on every prompt during peak
+  // BEFORE AGENT START — desktop notification on every peak prompt
   // ═══════════════════════════════════════════════════════════════
 
   pi.on("before_agent_start", async (_event, ctx) => {
@@ -298,15 +328,14 @@ export default function (pi: ExtensionAPI) {
   });
 
   // ═══════════════════════════════════════════════════════════════
-  // AGENT END — uses request-START peak status, not current time
+  // AGENT END — refresh TUI (peak may have ended), desktop notify
   // ═══════════════════════════════════════════════════════════════
 
   pi.on("agent_end", async (event, ctx) => {
+    updateTuiWarnings(ctx, currentModel);
+
     if (!ctx.model || !isDeepSeek(ctx.model)) return;
 
-    // Use the peak status captured at agent_start, not current time.
-    // This correctly handles runs that span an off-peak → peak transition
-    // (billed off-peak) or peak → off-peak (billed peak).
     const wasPeak = currentRunStartedInPeak;
 
     let totalCost = 0;
