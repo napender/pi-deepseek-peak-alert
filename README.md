@@ -6,9 +6,18 @@ DeepSeek introduced peak/valley pricing in July 2025. This extension makes sure 
 
 ## Screenshots
 
-| Peak session warning | Prompt rate alert | Agent completion |
-|---|---|---|---|
-| ![Peak session started notification](screenshot.png) | ![Prompt sent during peak](screenshot-3.png) | ![Agent done with cost](screenshot-2.png) |
+<table>
+  <tr>
+    <td align="center"><b>Peak session warning</b></td>
+    <td align="center"><b>Prompt rate alert</b></td>
+    <td align="center"><b>Agent completion</b></td>
+  </tr>
+  <tr>
+    <td><img src="screenshot.png" width="300" alt="Peak session warning"></td>
+    <td><img src="screenshot-3.png" width="300" alt="Prompt sent during peak"></td>
+    <td><img src="screenshot-2.png" width="300" alt="Agent done with cost"></td>
+  </tr>
+</table>
 
 ## Peak Hours (DeepSeek)
 
