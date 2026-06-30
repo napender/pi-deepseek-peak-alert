@@ -34,7 +34,7 @@ Plus a `/deepseek-peak` command to check status anytime.
 pi install npm:pi-deepseek-peak-alert
 
 # From git
-pi install git:github.com/napendra/pi-deepseek-peak-alert
+pi install git:github.com/napender/pi-deepseek-peak-alert
 
 # Local
 pi install /path/to/pi-deepseek-peak-alert
