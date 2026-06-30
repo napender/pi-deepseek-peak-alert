@@ -66,6 +66,15 @@ Add in-app TUI warnings (status bar + widget) so users see peak alerts even when
 - [ ] `/deepseek-peak` command still works
 - [ ] Desktop notifications unchanged
 - [ ] Timer auto-updates status/widget when peak starts/ends
+- [x] 🔧 Fixed: session_shutdown cleanup (clearInterval + clear TUI)
+- [x] 🔧 Fixed: Date consistency (single Date object in updateTuiWarnings)
+- [x] 🔧 Fixed: null guard on minutesUntilPeakEnd inside peak block
+
+### Phase 6: Push & PR
+
+- [ ] Push feature branch
+- [ ] Create PR against main
+- [ ] Merge after review
 
 ### Phase 6: Push & PR
 

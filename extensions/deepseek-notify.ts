@@ -157,22 +157,23 @@ function isDeepSeek(model: { provider: string; id: string } | undefined): boolea
 /** Update both the footer status and the editor widget based on current state. */
 function updateTuiWarnings(
   ctx: { ui: { setStatus: (id: string, text: string | undefined) => void; setWidget: (id: string, lines: string[] | undefined) => void } },
-  model: { provider: string; id: string } | undefined
+  model: { provider: string; id: string } | undefined,
 ) {
   const WIDGET_ID = "deepseek-peak";
   const STATUS_ID = "deepseek-peak";
 
   if (isDeepSeek(model) && isPeakHour()) {
-    const slot = getActivePeakSlot();
-    const mins = minutesUntilPeakEnd();
+    const now = new Date();
+    const slot = getActivePeakSlot(now);
+    const mins = minutesUntilPeakEnd(now);
     const label = slot ? peakSlotLabel(slot) : "now";
 
     // Status bar: compact indicator
-    ctx.ui.setStatus(STATUS_ID, `🔴 PEAK · ~${mins} min`);
+    ctx.ui.setStatus(STATUS_ID, `🔴 PEAK · ~${mins ?? "?"} min`);
 
     // Widget banner: full warning above editor
     const lines = [
-      `⚠️  DeepSeek peak pricing active · ${label} · ~${mins} min remaining`,
+      `⚠️  DeepSeek peak pricing active · ${label} · ~${mins ?? "?"} min remaining`,
       `    Prices are 2× regular rate. Ctrl+P to switch models.`,
     ];
     ctx.ui.setWidget(WIDGET_ID, lines);
@@ -225,6 +226,17 @@ export default function (pi: ExtensionAPI) {
     }
     wasPeakLastCheck = nowPeak;
   }, 60_000);
+
+  // ── Cleanup on session shutdown ────────────────────────────────
+  pi.on("session_shutdown", async () => {
+    clearInterval(peakCheckInterval);
+    // Clear TUI artifacts so another extension's UI isn't polluted
+    if (storedCtx) {
+      storedCtx.ui.setStatus("deepseek-peak", undefined);
+      storedCtx.ui.setWidget("deepseek-peak", undefined);
+    }
+    storedCtx = null;
+  });
 
   // ── /deepseek-peak command ─────────────────────────────────────
   pi.registerCommand("deepseek-peak", {
