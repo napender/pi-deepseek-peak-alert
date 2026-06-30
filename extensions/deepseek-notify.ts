@@ -1,12 +1,24 @@
 import type { ExtensionAPI, ExtensionCommandContext } from "@earendil-works/pi-coding-agent";
 
 /**
- * DeepSeek Peak-Hour Notifications (IST timezone)
+ * DeepSeek Peak-Hour Notifications
  *
  * DeepSeek peak hours (UTC): 1:00–4:00 AM and 6:00–10:00 AM
- *   → IST (UTC+5:30): 6:30–9:30 AM and 11:30 AM–3:30 PM
- *
  * During peak hours, prices are 2× regular.
+ *
+ * ─── CONFIGURE YOUR TIMEZONE ──────────────────────────────────────
+ * Change TIMEZONE_OFFSET_HOURS below to your UTC offset.
+ * Then update the PEAK_SLOTS labels to show your local times.
+ *
+ * Common offsets:
+ *   IST  (India)          +5.5
+ *   EST  (US Eastern)     -5 / -4 (DST)
+ *   PST  (US Pacific)     -8 / -7 (DST)
+ *   GMT  (UK)              0 / +1 (BST)
+ *   CET  (Central Europe) +1 / +2 (CEST)
+ *   CST  (China)          +8
+ *   JST  (Japan)          +9
+ *   AEST (Sydney)        +10 / +11 (DST)
  *
  * Edge cases covered:
  *   ✓ Switch to DeepSeek during peak          → immediate warning
@@ -49,34 +61,48 @@ function sendNotification(title: string, body: string, sound?: string) {
   }
 }
 
-// ─── Peak‑hour logic ─────────────────────────────────────────────
+// ─── CONFIGURE YOUR TIMEZONE ──────────────────────────────────────
+// Change this to your UTC offset (e.g. -5 for EST, +1 for CET, +8 for CST)
+const TIMEZONE_OFFSET_HOURS = 5.5; // IST (UTC+5:30)
 
-interface PeakSlot {
-  startUtcH: number;
-  endUtcH: number;
-  startIstH: number;
-  endIstH: number;
-  label: string;
+/** Convert UTC decimal hours to local time string (e.g. 6.5 → "6:30 AM") */
+function utcToLocalTimeLabel(utcH: number): string {
+  let local = utcH + TIMEZONE_OFFSET_HOURS;
+  if (local < 0) local += 24;
+  if (local >= 24) local -= 24;
+  const h = Math.floor(local);
+  const m = Math.round((local - h) * 60);
+  const ampm = h >= 12 ? "PM" : "AM";
+  const h12 = h % 12 || 12;
+  return m > 0 ? `${h12}:${m < 10 ? "0" : ""}${m} ${ampm}` : `${h12}:00 ${ampm}`;
 }
 
-const PEAK_SLOTS: PeakSlot[] = [
-  {
-    startUtcH: 1,
-    endUtcH: 4,
-    startIstH: 6.5,
-    endIstH: 9.5,
-    label: "6:30 AM – 9:30 AM IST",
-  },
-  {
-    startUtcH: 6,
-    endUtcH: 10,
-    startIstH: 11.5,
-    endIstH: 15.5,
-    label: "11:30 AM – 3:30 PM IST",
-  },
+/** Timezone abbreviation derived from offset (for display only) */
+function tzAbbr(): string {
+  const off = TIMEZONE_OFFSET_HOURS;
+  if (off === 5.5) return "IST";
+  if (off === -5) return "EST";
+  if (off === -8) return "PST";
+  if (off === 0) return "GMT";
+  if (off === 1) return "CET";
+  if (off === 8) return "CST";
+  if (off === 9) return "JST";
+  if (off === 10) return "AEST";
+  return `UTC${off >= 0 ? "+" : ""}${off}`;
+}
+
+// ─── Peak‑hour logic (UTC-based, unaffected by timezone) ─────────
+
+const PEAK_SLOTS = [
+  { startUtcH: 1, endUtcH: 4 },
+  { startUtcH: 6, endUtcH: 10 },
 ];
 
-function getActivePeakSlot(now: Date = new Date()): PeakSlot | null {
+function peakSlotLabel(slot: typeof PEAK_SLOTS[0]): string {
+  return `${utcToLocalTimeLabel(slot.startUtcH)} – ${utcToLocalTimeLabel(slot.endUtcH)} ${tzAbbr()}`;
+}
+
+function getActivePeakSlot(now: Date = new Date()) {
   const utcH = now.getUTCHours() + now.getUTCMinutes() / 60;
   for (const slot of PEAK_SLOTS) {
     if (utcH >= slot.startUtcH && utcH < slot.endUtcH) return slot;
@@ -114,7 +140,7 @@ function peakStatusText(): string {
   const slot = getActivePeakSlot();
   if (slot) {
     const mins = minutesUntilPeakEnd();
-    return `🔴 PEAK NOW — ${slot.label} — ~${mins} min remaining — 2× pricing active`;
+    return `🔴 PEAK NOW — ${peakSlotLabel(slot)} — ~${mins} min remaining — 2× pricing active`;
   }
   const mins = minutesUntilNextPeakStart();
   const nextSlot =
@@ -122,7 +148,7 @@ function peakStatusText(): string {
       const nowH = new Date().getUTCHours() + new Date().getUTCMinutes() / 60;
       return nowH < s.startUtcH;
     }) ?? PEAK_SLOTS[0];
-  return `🟢 Off-peak — next peak: ${nextSlot.label} (in ~${mins} min)`;
+  return `🟢 Off-peak — next peak: ${peakSlotLabel(nextSlot)} (in ~${mins} min)`;
 }
 
 // ─── DeepSeek model detection ────────────────────────────────────
@@ -158,7 +184,7 @@ export default function (pi: ExtensionAPI) {
         sendNotification(
           "⚠️ DEEPSEEK PEAK HOURS STARTED",
           [
-            `Peak window: ${slot?.label ?? "now"}`,
+            `Peak window: ${slot ? peakSlotLabel(slot) : "now"}`,
             "2× pricing is now active.",
             "Any NEW prompts will be billed at double rate.",
             "Switch with /model or Ctrl+P to avoid.",
@@ -199,7 +225,7 @@ export default function (pi: ExtensionAPI) {
       "⚠️ DEEPSEEK PEAK HOURS — 2× PRICE",
       [
         `Switched to ${event.model.name || event.model.id}.`,
-        `Peak: ${slot?.label}`,
+        `Peak: ${peakSlotLabel(slot)}`,
         minsLeft ? `Ends in ~${minsLeft} min` : "",
         "Prices DOUBLED. Ctrl+P to switch models.",
       ]
@@ -226,7 +252,7 @@ export default function (pi: ExtensionAPI) {
       "⚠️ DEEPSEEK PEAK — Session Started",
       [
         `Model: ${ctx.model.name || ctx.model.id}`,
-        `Peak: ${slot?.label}`,
+        `Peak: ${peakSlotLabel(slot)}`,
         minsLeft ? `~${minsLeft} min remaining` : "",
         "2× pricing is active.",
       ]
@@ -261,7 +287,7 @@ export default function (pi: ExtensionAPI) {
     sendNotification(
       "⏰ PEAK RATE — DeepSeek Prompt Sent",
       [
-        `Peak: ${slot?.label}`,
+        `Peak: ${peakSlotLabel(slot)}`,
         minsLeft ? `~${minsLeft} min until off-peak` : "",
         "You are being charged 2× for this request.",
       ]
