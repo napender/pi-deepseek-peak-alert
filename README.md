@@ -6,9 +6,9 @@ DeepSeek introduced peak/valley pricing in July 2025. This extension makes sure 
 
 ## Screenshots
 
-| Peak session warning | Agent completion with cost |
-|---|---|
-| ![Peak session started notification](screenshot.png) | ![Agent done with cost](screenshot-2.png) |
+| Peak session warning | Prompt rate alert | Agent completion |
+|---|---|---|---|
+| ![Peak session started notification](screenshot.png) | ![Prompt sent during peak](screenshot-3.png) | ![Agent done with cost](screenshot-2.png) |
 
 ## Peak Hours (DeepSeek)
 
