@@ -4,6 +4,12 @@ A [pi](https://pi.dev) extension that sends desktop notifications when you're us
 
 DeepSeek introduced peak/valley pricing in July 2025. This extension makes sure you never accidentally burn double credits without knowing.
 
+## Screenshots
+
+| Peak warning on model switch | `/deepseek-peak` command |
+|---|---|
+| ![Peak warning notification](screenshot.png) | ![Peak status command](screenshot-2.png) |
+
 ## Peak Hours (DeepSeek)
 
 DeepSeek peak hours are fixed in **UTC**:
